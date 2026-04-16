@@ -1,39 +1,28 @@
 export default async function handler(req, res) {
+  const API_KEY = process.env.SNCF_API_KEY;
+
   try {
-    const apiKey = process.env.SNCF_API_KEY;
+    // 🔥 reconstruction propre de l'URL
+    const path = req.url.replace('/api/sncf', '');
+    const url = `https://api.sncf.com/v1/coverage/sncf${path}`;
 
-    if (!apiKey) {
-      res.status(500).json({ error: "Missing SNCF_API_KEY environment variable" });
-      return;
-    }
-
-    const incoming = new URL(req.url, "http://localhost");
-    const path = incoming.pathname.replace(/^\/api\/sncf/, "");
-    const target = `https://api.sncf.com/v1/coverage/sncf${path}${incoming.search}`;
-
-    const response = await fetch(target, {
-      method: req.method,
+    const response = await fetch(url, {
       headers: {
-        Authorization: "Basic " + Buffer.from(apiKey + ":").toString("base64"),
-        Accept: "application/json",
+        Authorization:
+          "Basic " + Buffer.from(API_KEY + ":").toString("base64"),
       },
     });
 
-    const contentType = response.headers.get("content-type") || "application/json";
-    const body = await response.text();
+    const text = await response.text();
 
-    res.setHeader("Content-Type", contentType);
+    res.setHeader(
+      "Content-Type",
+      response.headers.get("content-type") || "application/json"
+    );
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
-    if (req.method === "OPTIONS") {
-      res.status(204).end();
-      return;
-    }
-
-    res.status(response.status).send(body);
+    res.status(response.status).send(text);
   } catch (err) {
-    res.status(500).json({ error: err.message || String(err) });
+    res.status(500).json({ error: err.message });
   }
 }
